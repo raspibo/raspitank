@@ -1,6 +1,6 @@
 #!/usr/bin/python
 import os
-import wiringpi
+import wiringpi2 as wiringpi
 import curses
 import time
 import sys
@@ -40,10 +40,10 @@ class getkey(threading.Thread):
 				self.videostart = os.system("ps -ae|grep raspivid > /dev/null")
 				if self.videostart !=0:
 					stdscr.addstr(7,5,"Stream:on USE nc raspitank.local 9999 |mplayer -fps 150 -demuxer h264es -")
-					if self.key == curses.KEY_HOME:
-						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -rot 180 -o - |nc -l 9999 &')
+					if self.key == curses.KEY_HOME:#-sa e' la saturazione
+						os.system('raspivid -t 0 -fps 7 -w 150 -h 112 -rot 270 -ex antishake  -o - |nc -l 9999 &')
 					else:
-						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -rot 180 -ex night -o - |nc -l 9999 &')
+						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -rot 270 -ex night  -o - |nc -l 9999 &')
 				else:
 					stdscr.addstr(7,5,"Stream:off                                                                 ")
 					os.system('killall raspivid >/dev/null')
@@ -192,8 +192,6 @@ def dritto():
 	time.sleep(0.5)
 	motor.digitalWrite(13,motor.LOW)
 
-if os.system("ps -ae |grep servod > /dev/null") !=0:
-	os.system("sudo /home/pi/PiBits/ServoBlaster/servod > /dev/null")
 motor = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
 motor.pinMode(10,motor.OUTPUT) #motore direzione 1
 motor.pinMode(12,motor.OUTPUT) #motore direzione -1
@@ -207,6 +205,8 @@ motor.pinMode(14,motor.OUTPUT)
 stop()
 dritto()
 if __name__=="__main__":
+	if os.system("ps -ae |grep servod > /dev/null") !=0:
+		os.system("sudo ./servod --p1pins=7 > /dev/null")
 	stdscr = curses.initscr()
 	curses.cbreak()
 	curses.noecho()
