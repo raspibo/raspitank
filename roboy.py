@@ -5,17 +5,6 @@ import curses
 import time
 import sys
 import threading
-#PIN da usare
-#11 luci
-#12 circuito avanti
-#10 circuito indietro
-#3 motore braccio
-#4 motore braccio
-#5 motore braccio
-#6 motore braccio
-#14 motore braccio
-#13 on/off servo
-#7 PWM servo (servo 0 ServoBlaster)
 class getkey(threading.Thread):
 	key = ''
 	light = False
@@ -41,9 +30,9 @@ class getkey(threading.Thread):
 				if self.videostart !=0:
 					stdscr.addstr(7,5,"Stream:on USE nc raspitank.local 9999 |mplayer -fps 150 -demuxer h264es -")
 					if self.key == curses.KEY_HOME:#-sa e' la saturazione
-						os.system('raspivid -t 0 -fps 7 -w 150 -h 112 -rot 270 -ex antishake  -o - |nc -l 9999 &')
+						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex antishake  -o - |nc -l 9999 &')
 					else:
-						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -rot 270 -ex night  -o - |nc -l 9999 &')
+						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex night  -o - |nc -l 9999 &')
 				else:
 					stdscr.addstr(7,5,"Stream:off                                                                 ")
 					os.system('killall raspivid >/dev/null')
@@ -98,9 +87,9 @@ class getkey(threading.Thread):
 			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
 			#	stdscr.addstr(3,5,"Direct:"+self.direction+"         ")
 			#	stdscr.refresh()
-			elif self.key == ord('q'):
-				arm(0,True)
 			elif self.key == ord('a'):
+				arm(0,True)
+			elif self.key == ord('q'):
 				arm(0,False)
 			elif self.key == ord('s'):
 				arm(4,True)
@@ -114,9 +103,9 @@ class getkey(threading.Thread):
 				arm(3,True)
 			elif self.key == ord('r'):
 				arm(3,False)
-			elif self.key == ord('x'):
-				arm(1,True)
 			elif self.key == ord('z'):
+				arm(1,True)
+			elif self.key == ord('x'):
 				arm(1,False)
 			elif self.key == 263:
 				stop()
@@ -138,7 +127,7 @@ def arm(armot,updn):
 		avanti()
 		motor.digitalWrite(motors[armot][0],motor.HIGH)
 		if armot == 0:
-			getkey.mstr[0] = 'open '
+			getkey.mstr[0] = 'close'
 		elif armot == 1:
 			getkey.mstr[1] = 'right'
 		else:
@@ -151,7 +140,7 @@ def arm(armot,updn):
 		indietro()
 		motor.digitalWrite(motors[armot][0],motor.HIGH)
 		if armot == 0:
-			getkey.mstr[0] = 'close'
+			getkey.mstr[0] = 'open '
 		elif armot == 1:
 			getkey.mstr[1] = 'left '
 		else:
@@ -164,14 +153,11 @@ def arm(armot,updn):
 		stop()
 
 def orario():
-	motor.digitalWrite(13,motor.HIGH)
-	os.system("echo 0=60 > /dev/servoblaster")
-	time.sleep(0.5)
-	motor.digitalWrite(13,motor.LOW)	
+	servostart("echo 0=50 > /dev/servoblaster")
 def indietro():
-	motor.digitalWrite(12,motor.HIGH)
-def avanti():
 	motor.digitalWrite(10,motor.HIGH)
+def avanti():
+	motor.digitalWrite(12,motor.HIGH)
 def stop():
 	motor.digitalWrite(10,motor.LOW)
 	motor.digitalWrite(12,motor.LOW)
@@ -182,22 +168,22 @@ def stop():
 	motor.digitalWrite(14,motor.LOW)
 	getkey.mstr = ['stop ','stop ','stop ','stop ','stop ']
 def antiorario():
-	motor.digitalWrite(13,motor.HIGH)
-	os.system("echo 0=240 > /dev/servoblaster")
-	time.sleep(0.5)
-	motor.digitalWrite(13,motor.LOW)
+	servostart("echo 0=250 > /dev/servoblaster")
 def dritto():
-	motor.digitalWrite(13,motor.HIGH)
-	os.system("echo 0=130 > /dev/servoblaster")
+	servostart("echo 0=135 > /dev/servoblaster")
+def servostart(strserv):
+	motor.digitalWrite(8,motor.HIGH)
+	os.system(strserv)
 	time.sleep(0.5)
-	motor.digitalWrite(13,motor.LOW)
+	motor.digitalWrite(8,motor.LOW)
 
 motor = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
-motor.pinMode(10,motor.OUTPUT) #motore direzione 1
-motor.pinMode(12,motor.OUTPUT) #motore direzione -1
-motor.pinMode(13,motor.OUTPUT) #accensione servo
-motor.pinMode(11,motor.OUTPUT) #luci
-motor.pinMode(5,motor.OUTPUT) #motori braccio
+motor.pinMode(10,motor.OUTPUT) 
+motor.pinMode(12,motor.OUTPUT)
+motor.pinMode(13,motor.OUTPUT)
+motor.pinMode(8,motor.OUTPUT)
+motor.pinMode(11,motor.OUTPUT) 
+motor.pinMode(5,motor.OUTPUT) 
 motor.pinMode(6,motor.OUTPUT)
 motor.pinMode(4,motor.OUTPUT)
 motor.pinMode(3,motor.OUTPUT)
@@ -221,15 +207,20 @@ if __name__=="__main__":
 	stdscr.addstr(6,5,"Lights:off")
 	stdscr.addstr(7,5,"Stream:off")
 	stdscr.refresh()
+	linkq = curses.newwin(3,80,10,5)
 	getkey = getkey()
 	getkey.start()
 	key=''
 	secondpass = time.time()
 	while getkey.key != 27:
 		if time.time() - secondpass > 1:
-			link = os.popen('iwconfig wlan0 |grep "Link Quality"') #deprecated
-			stdscr.addstr(15,5,link.read().strip())
-			stdscr.refresh()
+#			link = os.popen('iwconfig wlan0 |grep "Link Quality"') #deprecated
+			link = os.popen('cat /proc/net/wireless |tail -1|cut -c 13-18')
+#			linkq.clear()
+			linkq.addstr(0,0,"Link Quality"+link.read())
+			linkq.refresh()
+			#stdscr.addstr(15,5,link.read().strip())
+			#stdscr.refresh()
 			secondpass = time.time()
 	os.system('killall raspivid >/dev/null')
 	os.system('killall nc > /dev/null')
