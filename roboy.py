@@ -24,7 +24,8 @@ class getkey(threading.Thread):
 					motor.digitalWrite(11,motor.HIGH)
 					time.sleep(0.5)
 					self.light = True
-					stdscr.addstr(6,5,"Lights:on ")
+					stdscr.addstr(6,5,"Lights:")
+					stdscr.addstr(6,12,"on ")
 			elif self.key == curses.KEY_HOME or self.key == curses.KEY_END: #HOME accende lo stream, END accende lo stream notturno
 				self.videostart = os.system("ps -ae|grep raspivid > /dev/null")
 				if self.videostart !=0:
@@ -37,24 +38,24 @@ class getkey(threading.Thread):
 					stdscr.addstr(7,5,"Stream:off                                                                 ")
 					os.system('killall raspivid >/dev/null')
 					os.system('killall nc >/dev/null')
-			elif self.key == curses.KEY_UP: #FRECCE muovono il robot
-				if self.motion == 'back':
-					stop()
-					self.motion = 'stop'
-					time.sleep(0.2)
-				elif self.motion == 'stop':
-					avanti()
-					self.motion = 'forward'
-			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
-			#	stdscr.refresh()
-			elif self.key == curses.KEY_DOWN:
+			elif self.key == curses.KEY_DOWN: #FRECCE muovono il robot
 				if self.motion == 'forward':
 					stop()
 					self.motion = 'stop'
 					time.sleep(0.2)
 				elif self.motion == 'stop':
-					indietro()
+					avanti()
 					self.motion = 'back'
+			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
+			#	stdscr.refresh()
+			elif self.key == curses.KEY_UP:
+				if self.motion == 'back':
+					stop()
+					self.motion = 'stop'
+					time.sleep(0.2)
+				elif self.motion == 'stop':
+					indietro()
+					self.motion = 'forward'
 			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
 			#	stdscr.refresh()
 			elif self.key == curses.KEY_LEFT:
@@ -129,7 +130,7 @@ def arm(armot,updn):
 		if armot == 0:
 			getkey.mstr[0] = 'close'
 		elif armot == 1:
-			getkey.mstr[1] = 'right'
+			getkey.mstr[1] = 'left '
 		else:
 			getkey.mstr[armot] = 'down '		
 	elif motors[armot][1] == -1 and updn:
@@ -142,7 +143,7 @@ def arm(armot,updn):
 		if armot == 0:
 			getkey.mstr[0] = 'open '
 		elif armot == 1:
-			getkey.mstr[1] = 'left '
+			getkey.mstr[1] = 'right'
 		else:
 			getkey.mstr[armot] = 'up   '
 	elif motors[armot][1] == 1 and not updn:
@@ -155,9 +156,9 @@ def arm(armot,updn):
 def orario():
 	servostart("echo 0=50 > /dev/servoblaster")
 def indietro():
-	motor.digitalWrite(10,motor.HIGH)
-def avanti():
 	motor.digitalWrite(12,motor.HIGH)
+def avanti():
+	motor.digitalWrite(10,motor.HIGH)
 def stop():
 	motor.digitalWrite(10,motor.LOW)
 	motor.digitalWrite(12,motor.LOW)
@@ -215,9 +216,20 @@ if __name__=="__main__":
 	while getkey.key != 27:
 		if time.time() - secondpass > 1:
 #			link = os.popen('iwconfig wlan0 |grep "Link Quality"') #deprecated
-			link = os.popen('cat /proc/net/wireless |tail -1|cut -c 13-18')
+			link = os.popen('cat /proc/net/wireless |tail -1|cut -c 14-17')
 #			linkq.clear()
-			linkq.addstr(0,0,"Link Quality"+link.read())
+			link = link.read()
+			try:
+				link = int(link)
+				if (link < 32) :
+					linkq.addstr(1,0,"ATTENZIONE",curses.A_BOLD)
+				else:
+					linkq.addstr(1,0,"                        ")
+				if (link < 20) :
+					stop()
+			except TypeError:
+				stop()
+			linkq.addstr(0,0,"Link Quality "+str(link)+"%                                   ",curses.A_BOLD)
 			linkq.refresh()
 			#stdscr.addstr(15,5,link.read().strip())
 			#stdscr.refresh()
