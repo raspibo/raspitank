@@ -29,13 +29,21 @@ class getkey(threading.Thread):
 			elif self.key == curses.KEY_HOME or self.key == curses.KEY_END: #HOME accende lo stream, END accende lo stream notturno
 				self.videostart = os.system("ps -ae|grep raspivid > /dev/null")
 				if self.videostart !=0:
-					stdscr.addstr(7,5,"Stream:on USE nc raspitank.local 9999 |mplayer -fps 150 -demuxer h264es -")
+					stdscr.addstr(7,5,"Stream:on ")
+					stdscr.addstr(8,5,"nc raspitank.local 9999 |mplayer -fps 150 -demuxer h264es -")
+					stdscr.addstr(9,5,"nc raspitank.local 9998 |aplay")
+					os.system('./audio.sh >/dev/null 2>&1 &')
+#					os.system('arecord -D hw:1,0 -f S16_LE | nc -l 9998 &')
 					if self.key == curses.KEY_HOME:#-sa e' la saturazione
-						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex antishake  -o - |nc -l 9999 &')
+						os.system('./videoday.sh >/dev/null 2>&1 &')
+						#os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex antishake  -o - |nc -l 9999 &')
 					else:
-						os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex night  -o - |nc -l 9999 &')
+						os.system('./videonig.sh >/dev/null 2>&1 &')
+						#os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex night  -o - |nc -l 9999 &')
 				else:
 					stdscr.addstr(7,5,"Stream:off                                                                 ")
+					stdscr.addstr(8,5," ".ljust(60))
+					stdscr.addstr(9,5," ".ljust(60))
 					os.system('killall raspivid >/dev/null')
 					os.system('killall nc >/dev/null')
 			elif self.key == curses.KEY_DOWN: #FRECCE muovono il robot
