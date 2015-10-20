@@ -5,6 +5,8 @@ import curses
 import time
 import sys
 import threading
+import serial
+
 class getkey(threading.Thread):
 	key = ''
 	light = False
@@ -14,39 +16,36 @@ class getkey(threading.Thread):
 	def run(self):
 		while self.key != 27:
 			self.key = stdscr.getch()
-			if self.key == ord(' '): #spazio accende e spegne le luci
+			if self.key == ord(' '): #space turns the LED on and off
 				if self.light:
-					motor.digitalWrite(11,motor.LOW)
+					pins.digitalWrite(11,pins.LOW)
 					time.sleep(0.5)
 					self.light = False
 					stdscr.addstr(6,5,"Lights:off")
 				else:
-					motor.digitalWrite(11,motor.HIGH)
+					pins.digitalWrite(11,pins.HIGH)
 					time.sleep(0.5)
 					self.light = True
 					stdscr.addstr(6,5,"Lights:")
 					stdscr.addstr(6,12,"on ")
-			elif self.key == curses.KEY_HOME or self.key == curses.KEY_END: #HOME accende lo stream, END accende lo stream notturno
+			elif self.key == curses.KEY_HOME or self.key == curses.KEY_END: #HOME turns on the video stream, END turns on the video stream in night mode
 				self.videostart = os.system("ps -ae|grep raspivid > /dev/null")
 				if self.videostart !=0:
 					stdscr.addstr(7,5,"Stream:on ")
 					stdscr.addstr(8,5,"nc raspitank.local 9999 |mplayer -fps 150 -demuxer h264es -")
 					stdscr.addstr(9,5,"nc raspitank.local 9998 |aplay")
 					os.system('./audio.sh >/dev/null 2>&1 &')
-#					os.system('arecord -D hw:1,0 -f S16_LE | nc -l 9998 &')
-					if self.key == curses.KEY_HOME:#-sa e' la saturazione
+					if self.key == curses.KEY_HOME: #alter the .sh for custom video settings
 						os.system('./videoday.sh >/dev/null 2>&1 &')
-						#os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex antishake  -o - |nc -l 9999 &')
 					else:
 						os.system('./videonig.sh >/dev/null 2>&1 &')
-						#os.system('raspivid -t 0 -fps 15 -w 640 -h 480 -ex night  -o - |nc -l 9999 &')
 				else:
 					stdscr.addstr(7,5,"Stream:off                                                                 ")
 					stdscr.addstr(8,5," ".ljust(60))
 					stdscr.addstr(9,5," ".ljust(60))
 					os.system('killall raspivid >/dev/null')
 					os.system('killall nc >/dev/null')
-			elif self.key == curses.KEY_DOWN: #FRECCE muovono il robot
+			elif self.key == curses.KEY_DOWN: #ARROWS do the movement
 				if self.motion == 'forward':
 					stop()
 					self.motion = 'stop'
@@ -54,8 +53,6 @@ class getkey(threading.Thread):
 				elif self.motion == 'stop':
 					avanti()
 					self.motion = 'back'
-			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
-			#	stdscr.refresh()
 			elif self.key == curses.KEY_UP:
 				if self.motion == 'back':
 					stop()
@@ -64,8 +61,6 @@ class getkey(threading.Thread):
 				elif self.motion == 'stop':
 					indietro()
 					self.motion = 'forward'
-			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
-			#	stdscr.refresh()
 			elif self.key == curses.KEY_LEFT:
 				stop()
 				self.motion = 'stop'
@@ -79,7 +74,6 @@ class getkey(threading.Thread):
 				else:
 					self.direction = 'left'
 					time.sleep(0.2)
-			#	stdscr.refresh()
 			elif self.key == curses.KEY_RIGHT:
 				stop()
 				self.motion = 'stop'
@@ -93,121 +87,113 @@ class getkey(threading.Thread):
 				else:
 					self.direction = 'right'
 					time.sleep(0.2)
-			#	stdscr.addstr(2,5,"Motion:"+self.motion+"    ")
-			#	stdscr.addstr(3,5,"Direct:"+self.direction+"         ")
-			#	stdscr.refresh()
 			elif self.key == ord('a'):
-				arm(0,True)
+				arm(1)
 			elif self.key == ord('q'):
-				arm(0,False)
+				arm(-1)
 			elif self.key == ord('s'):
-				arm(4,True)
+				arm(2)
 			elif self.key == ord('w'):
-				arm(4,False)
+				arm(-2)
 			elif self.key == ord('d'):
-				arm(2,True)
+				arm(3)
 			elif self.key == ord('e'):
-				arm(2,False)
+				arm(-3)
 			elif self.key == ord('f'):
-				arm(3,True)
+				arm(4)
 			elif self.key == ord('r'):
-				arm(3,False)
+				arm(-4)
 			elif self.key == ord('z'):
-				arm(1,True)
+				arm(-5)
 			elif self.key == ord('x'):
-				arm(1,False)
+				arm(5)
 			elif self.key == 263:
 				stop()
 				self.motion = 'stop'	
 			stdscr.addstr(3,5,"Motion:"+self.motion+"    ")
 			stdscr.addstr(4,5,"Direct:"+self.direction+"         ")
-			stdscr.addstr(5,5,"Motor1:"+self.mstr[0]+" Motor2:"+self.mstr[4]+" Motor3:"+self.mstr[2]+" Motor4:"+self.mstr[3]+" Motor5:"+self.mstr[1])
+			stdscr.addstr(5,5,"Motor1:"+self.mstr[0]+" Motor2:"+self.mstr[1]+" Motor3:"+self.mstr[2]+" Motor4:"+self.mstr[3]+" Motor5:"+self.mstr[4])
 			stdscr.refresh()
 		exit()
 
-def arm(armot,updn):
-	stop()
+def arm(armot):
+	global motActive
 	getkey.motion = 'stop'
-	for mtr in motors:
-		if mtr[0] != motors[armot][0]:
-			mtr[1] = 0
-	if motors[armot][1] == 0 and updn:
-		motors[armot][1] = 1
-		avanti()
-		motor.digitalWrite(motors[armot][0],motor.HIGH)
-		if armot == 0:
-			getkey.mstr[0] = 'close'
-		elif armot == 1:
-			getkey.mstr[1] = 'left '
-		else:
-			getkey.mstr[armot] = 'down '		
-	elif motors[armot][1] == -1 and updn:
-		motors[armot][1] = 0
+	if motActive == armot:
+		return
+	if motActive == (-1*armot):
+		motActive =0
 		stop()
-	elif motors[armot][1] == 0 and not updn:
-		motors[armot][1] = -1
-		indietro()
-		motor.digitalWrite(motors[armot][0],motor.HIGH)
-		if armot == 0:
-			getkey.mstr[0] = 'open '
-		elif armot == 1:
-			getkey.mstr[1] = 'right'
-		else:
-			getkey.mstr[armot] = 'up   '
-	elif motors[armot][1] == 1 and not updn:
-		motors[armot][1] = 0
-		stop()
+		return
+	stop()
+	motActive = armot
+	if armot < 0:
+		ser.write(polarity0)
+		armot = -1*armot
 	else:
-		motors[armot][1] = 0
-		stop()
+		ser.write(polarity1)
+	ser.write(motONs[armot-1])
+	if motActive == 1:
+		getkey.mstr[0] = "open "
+	if motActive == -1:
+		getkey.mstr[0] = "close"
+	if motActive >=2 and motActive <=4:
+		getkey.mstr[motActive-1] = "down "
+	if motActive <=-2 and motActive >=-4:
+		getkey.mstr[(-1*motActive)-1] = "up   "
+	if motActive ==5:
+		getkey.mstr[4] = "right"
+	if motActive ==-5:
+		getkey.mstr[4] = "left "
 
 def orario():
 	servostart("echo 0=50 > /dev/servoblaster")
 def indietro():
-	motor.digitalWrite(12,motor.HIGH)
+	ser.write(polarity0)
+	ser.write(motON)
 def avanti():
-	motor.digitalWrite(10,motor.HIGH)
+	ser.write(polarity1)
+	ser.write(motON)
 def stop():
-	motor.digitalWrite(10,motor.LOW)
-	motor.digitalWrite(12,motor.LOW)
-	motor.digitalWrite(5,motor.LOW)
-	motor.digitalWrite(6,motor.LOW)
-	motor.digitalWrite(4,motor.LOW)
-	motor.digitalWrite(3,motor.LOW)
-	motor.digitalWrite(14,motor.LOW)
+	ser.write(motOFF)
+	time.sleep(0.01)
+	for sercomm in motOFFs:
+		ser.write(sercomm)
+		time.sleep(0.01)
 	getkey.mstr = ['stop ','stop ','stop ','stop ','stop ']
 def antiorario():
 	servostart("echo 0=250 > /dev/servoblaster")
 def dritto():
 	servostart("echo 0=135 > /dev/servoblaster")
 def servostart(strserv):
-	motor.digitalWrite(8,motor.HIGH)
+	ser.write(servoON)
 	os.system(strserv)
 	time.sleep(0.5)
-	motor.digitalWrite(8,motor.LOW)
+	ser.write(servoOFF)
 
-motor = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
-motor.pinMode(10,motor.OUTPUT) 
-motor.pinMode(12,motor.OUTPUT)
-motor.pinMode(13,motor.OUTPUT)
-motor.pinMode(8,motor.OUTPUT)
-motor.pinMode(11,motor.OUTPUT) 
-motor.pinMode(5,motor.OUTPUT) 
-motor.pinMode(6,motor.OUTPUT)
-motor.pinMode(4,motor.OUTPUT)
-motor.pinMode(3,motor.OUTPUT)
-motor.pinMode(14,motor.OUTPUT)
+pins = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
+pins.pinMode(11,pins.OUTPUT)
+ser = serial.Serial(port='/dev/ttyAMA0',baudrate=9600)
+polarity0 = "0"
+polarity1 = "1"
+motON = "c"
+motOFF= "d"
+servoON = "e"
+servoOFF= "g"
+motONs = ["2","4","6","8","a"]
+motOFFs = ["3","5","7","9","b"]
+motActive = 0
+ser.open()
 stop()
 dritto()
 if __name__=="__main__":
 	if os.system("ps -ae |grep servod > /dev/null") !=0:
-		os.system("sudo ./servod --p1pins=7 > /dev/null")
+		os.system("sudo ./servod --p1pins=7 > /dev/null") #put correct path for servod
 	stdscr = curses.initscr()
 	curses.cbreak()
 	curses.noecho()
 	curses.curs_set(0)
 	stdscr.keypad(1)
-	motors = [[6,0],[5,0],[4,0],[3,0],[14,0]]
 	stdscr.addstr(0,5,"Press ESC to quit, up/down = Motion, left/right = Direct, space = Lights, BACKSPACE = stop")
 	stdscr.addstr(1,5,"home = Stream, end = Night stream, q/a w/s e/d r/f z/x = Arm motors")
 	stdscr.addstr(3,5,"Motion:")
@@ -223,9 +209,7 @@ if __name__=="__main__":
 	secondpass = time.time()
 	while getkey.key != 27:
 		if time.time() - secondpass > 1:
-#			link = os.popen('iwconfig wlan0 |grep "Link Quality"') #deprecated
 			link = os.popen('cat /proc/net/wireless |tail -1|cut -c 14-17')
-#			linkq.clear()
 			link = link.read()
 			try:
 				link = int(link)
@@ -239,11 +223,10 @@ if __name__=="__main__":
 				stop()
 			linkq.addstr(0,0,"Link Quality "+str(link)+"%                                   ",curses.A_BOLD)
 			linkq.refresh()
-			#stdscr.addstr(15,5,link.read().strip())
-			#stdscr.refresh()
 			secondpass = time.time()
 	os.system('killall raspivid >/dev/null')
 	os.system('killall nc > /dev/null')
 	stop()
+        ser.close()
 	curses.endwin()
-	motor.digitalWrite(11,motor.LOW)
+	pins.digitalWrite(11,pins.LOW)
