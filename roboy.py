@@ -7,6 +7,19 @@ import sys
 import threading
 import serial
 
+pins = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
+pins.pinMode(11,pins.OUTPUT)
+ser = serial.Serial(port='/dev/ttyAMA0',baudrate=9600)
+polarity0 = "0"
+polarity1 = "1"
+motON = "c"
+motOFF= "d"
+servoON = "e"
+servoOFF= "g"
+motONs = ["2","4","6","8","a"]
+motOFFs = ["3","5","7","9","b"]
+motActive = 0
+
 class getkey(threading.Thread):
 	key = ''
 	light = False
@@ -171,22 +184,10 @@ def servostart(strserv):
 	time.sleep(0.5)
 	ser.write(servoOFF)
 
-pins = wiringpi.GPIO(wiringpi.GPIO.WPI_MODE_PINS)
-pins.pinMode(11,pins.OUTPUT)
-ser = serial.Serial(port='/dev/ttyAMA0',baudrate=9600)
-polarity0 = "0"
-polarity1 = "1"
-motON = "c"
-motOFF= "d"
-servoON = "e"
-servoOFF= "g"
-motONs = ["2","4","6","8","a"]
-motOFFs = ["3","5","7","9","b"]
-motActive = 0
-ser.open()
-stop()
-dritto()
 if __name__=="__main__":
+	ser.open()
+	stop()
+	dritto()
 	if os.system("ps -ae |grep servod > /dev/null") !=0:
 		os.system("sudo ./servod --p1pins=7 > /dev/null") #put correct path for servod
 	stdscr = curses.initscr()
